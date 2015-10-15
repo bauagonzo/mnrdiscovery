@@ -2,6 +2,19 @@
 ```mnrdiscovery``` is a CLI to test devices accessibility from EMC SRM and other M&R products.
 
 #Usage
+```shell
+ruby mnrdiscovery.rb --help                                                                                                                          1 ↵
+Usage: mnrdiscovery [options]
+    -h, --host [hostname]            frontend host
+    -u, --user [username]            frontend username
+    -p, --password [*****]           frontend password
+        --port [port]                frontend port
+        --timeout [s]                timeout for requests (s)
+    -t, --type [device type]         specify type
+        --csv [file]                 write results in a csv file
+    -v, --verbose                    verbose output
+    -l, --log                        log http requests
+```
 
 #Contributing
 fork it, use it, break it, fix it, upgrade it...
