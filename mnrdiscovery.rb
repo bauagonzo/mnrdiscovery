@@ -140,7 +140,7 @@ class Nokogiri::XML::Element
     end
   end
   def question_answer
-    if    inp=at_css('input')         ; inp.attr('value')
+    if    inp=at_css('input')         ; if inp.attr('class') then JSON.parse(inp.attr('value')) else inp.attr('value') end
     elsif res=at_css('.test-result')  ; res.attributes_hash
     else                              ; text
     end
@@ -357,8 +357,8 @@ module Discovery
         logger.debug 'getting device type list'
         client.get('/discocenter/devicemgmt/list') do |response,_|
           Nokogiri::HTML(response.body).at_css('#device-types').table(&:elements_attrs).map do |h|
-            Type.new h
-          end
+          Type.new h
+        end
         end
       end.call
     end
