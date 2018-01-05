@@ -4,24 +4,24 @@ require 'logger'
 require 'net/http'
 require 'json'
 require 'nokogiri'
+require 'openssl'
 
 class MnrClient
   DEFAULT_OPTIONS={
-    host:     'localhost',
+    url:     'https://localhost:58443',
     user:     'admin',
     password: 'changeme',
-    port:     58080,
     log:      false,
     url_root: '/centralized-management',
     verbose:  false,
-    timeout:  60,
+    timeout:  600,
   }
   def initialize args
     OptionParser.new do |o|
       o.on "-h", "--host [hostname]",  "frontend host"          do |h| options[:host]=h     end
+      o.on "-U", "--url [https://localhost",  "frontend url"    do |u| options[:url]=u      end
       o.on "-u", "--user [username]",  "frontend username"      do |u| options[:user]=u     end
       o.on "-p", "--password [*****]", "frontend password"      do |p| options[:password]=p end
-      o.on "--port [port]", Integer, "frontend port"            do |p| options[:port]=p     end
       o.on "--timeout [s]", Integer, "timeout for requests (s)" do |t| options[:timeout]=t  end
       o.on "-t","--type [device type]", "specify type"          do |t| options[:type]=t     end
       o.on "--csv [file]", "write results in a csv file"        do |f| options[:csv]=f      end
@@ -38,8 +38,11 @@ class MnrClient
     end
   end
   def http
-    @http||=Net::HTTP.new(options[:host],options[:port]).tap do |h|
+    uri = URI(options[:url])
+    @http||=Net::HTTP.new(uri.host, uri.port).tap do |h|
       h.set_debug_output(STDOUT) if options[:log]
+      h.use_ssl = uri.scheme == 'https'
+      h.verify_mode = OpenSSL::SSL::VERIFY_NONE
       h.open_timeout=options[:timeout]
       h.read_timeout=options[:timeout]
     end
