@@ -18,7 +18,6 @@ class MnrClient
   }
   def initialize args
     OptionParser.new do |o|
-      o.on "-h", "--host [hostname]",  "frontend host"          do |h| options[:host]=h     end
       o.on "-U", "--url [https://localhost",  "frontend url"    do |u| options[:url]=u      end
       o.on "-u", "--user [username]",  "frontend username"      do |u| options[:user]=u     end
       o.on "-p", "--password [*****]", "frontend password"      do |p| options[:password]=p end
@@ -59,6 +58,11 @@ class MnrClient
       # TODO use the proper redirection in response['location']
       get '/'
     end
+  end
+  def get_version
+    x = get '/info/about'
+    v = Nokogiri::HTML(x).at_css('.product-version li').content
+    v[/((\d)+\.(\d)+)/,1]
   end
   def logout
     get '/session/logout'
@@ -211,7 +215,6 @@ class String
     green:  32,
     yellow: 33,
   }
-  # puts "TOMATO!!!!".color(:red)
   def color c
     col=COLORS[c]
     raise ArgumentError unless col
@@ -231,8 +234,22 @@ end
 
 module Discovery
   class ObjectHash < Hash
+    @@mnr_version='4.1'
     def initialize h
       h.each_with_object(self) do |(k,v),o| o[k]=v end
+    end
+    def self.set_mnr_version v
+      @@mnr_version = v
+    end
+    def self.get_mnr_version
+      @@mnr_version
+    end
+    def parse_root_device root, *rest
+      if @@mnr_version.to_f >= 4.2
+        self.dig(root.split(' ').last, *rest)
+      else
+        self.dig(root, *rest)
+      end
     end
   end
   class CSVFile
@@ -294,7 +311,7 @@ module Discovery
           when "TIMEOUT"        ; "TIMEOUT".color :red
           else                  ; "UNKNOWN".color :yellow
           end
-      det=[type['Device Type']['device-name'],self['Server'],self['Instance'],friendly_name,tr["status"]]
+      det=[type.parse_root_device('Device Type','device-name'),self['Server'],self['Instance'],friendly_name,tr["status"]]
       Discovery.logger.info "%-25s%-25s%-25s%-25s [%s]" % det
       det
     end
@@ -302,10 +319,10 @@ module Discovery
   class Type < ObjectHash
     def wanted?
       t=Discovery.client.options[:type]
-      not t or t==self["Device Type"]["device-name"]
+      not t or t==self.parse_root_device("Device Type","device-name")
     end
     def request
-      @request||=self["Device Type"].translate_keys(&:lower_camel_case)
+      @request||=self.parse_root_device("Device Type").translate_keys(&:lower_camel_case)
     end
     def devices
       @devices||=Discovery.client.get('/discocenter/devicemgmt/get', params: self.request) do |response,_|
@@ -344,6 +361,7 @@ module Discovery
       client.logger
     end
     def start
+      ObjectHash.set_mnr_version(client.get_version)
       client.login
       type_details
       device_details
@@ -351,8 +369,8 @@ module Discovery
     end
     def type_details
       types.each do |t|
-        count=t["Device Count"]
-        logger.info "%-25s%6d %s" % [t["Device Type"]["device-name"],count,'device'.pluralize(count)]
+        count=t.parse_root_device("Device Count")
+        logger.info "%-25s%6d %s" % [t.parse_root_device("Device Type","device-name"),count,'device'.pluralize(count)]
       end
     end
     def types
