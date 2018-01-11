@@ -147,9 +147,11 @@ class Nokogiri::XML::Element
     end
   end
   def question_answer
-    if    inp=at_css('input')         ; if inp.attr('class') then JSON.parse(inp.attr('value')) else inp.attr('value') end
-    elsif res=at_css('.test-result')  ; res.attributes_hash
-    else                              ; text
+    begin
+      if    inp=at_css('input')         ; if inp.attr('class') then JSON.parse(inp.attr('value')) rescue ''else inp.attr('value') end
+      elsif res=at_css('.test-result')  ; res.attributes_hash
+      else                              ; text
+      end
     end
   end
   def elements_attrs
@@ -280,7 +282,7 @@ module Discovery
         end
       end.each_with_object(Discovery::Answers.new) do |(k,v),o|
         o.store_at *k,v unless v.to_s.empty?
-        end.tap do |a| Discovery.logger.debug a end
+      end.tap do |a| Discovery.logger.debug a end
     end
     def test
       Discovery.client.post('/discocenter/devicemgmt/test', data: test_payload, headers: {"content-type"=>"application/json"}) do |response,_|
