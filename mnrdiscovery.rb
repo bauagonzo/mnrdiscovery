@@ -247,7 +247,7 @@ module Discovery
       @@mnr_version
     end
     def parse_root_device root, *rest
-      if @@mnr_version.to_f >= 4.2
+      if @@mnr_version.to_f >= 4.1
         self.dig(root.split(' ').last, *rest)
       else
         self.dig(root, *rest)
