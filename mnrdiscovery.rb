@@ -236,7 +236,8 @@ end
 
 module Discovery
   class ObjectHash < Hash
-    @@mnr_version='4.1'
+    @@mnr_version='4.0'
+    @@urls = {device_type: "Device Type", device_count: "Device Count"}
     def initialize h
       h.each_with_object(self) do |(k,v),o| o[k]=v end
     end
@@ -246,12 +247,20 @@ module Discovery
     def self.get_mnr_version
       @@mnr_version
     end
-    def parse_root_device root, *rest
-      if @@mnr_version.to_f >= 4.1
-        self.dig(root.split(' ').last, *rest)
-      else
-        self.dig(root, *rest)
+    def self.initialize_urls
+      if @@mnr_version.to_f >= 4.3
+        @@urls[:device_type] = "Technology"
+        @@urls[:device_count] = "# Sources"
+      elsif @@mnr_version.to_f >= 4.1
+        @@urls[:device_type] = "Type"
+        @@urls[:device_count] = "Count"
       end
+    end
+    def urls
+      @@urls
+    end
+    def parse_root_device root, *rest
+        self.dig(root, *rest)
     end
   end
   class CSVFile
@@ -313,7 +322,7 @@ module Discovery
           when "TIMEOUT"        ; "TIMEOUT".color :red
           else                  ; "UNKNOWN".color :yellow
           end
-      det=[type.parse_root_device('Device Type','device-name'),self['Server'],self['Instance'],friendly_name,tr["status"]]
+      det=[type.parse_root_device(type.urls[:device_type],'device-name'),self['Server'],self['Instance'],friendly_name,tr["status"]]
       Discovery.logger.info "%-25s%-25s%-25s%-25s [%s]" % det
       det
     end
@@ -321,10 +330,10 @@ module Discovery
   class Type < ObjectHash
     def wanted?
       t=Discovery.client.options[:type]
-      not t or t==self.parse_root_device("Device Type","device-name")
+      not t or t==self.parse_root_device(self.urls[:device_type],"device-name")
     end
     def request
-      @request||=self.parse_root_device("Device Type").translate_keys(&:lower_camel_case)
+      @request||=self.parse_root_device(self.urls[:device_type]).translate_keys(&:lower_camel_case)
     end
     def devices
       @devices||=Discovery.client.get('/discocenter/devicemgmt/get', params: self.request) do |response,_|
@@ -364,6 +373,7 @@ module Discovery
     end
     def start
       ObjectHash.set_mnr_version(client.get_version)
+      ObjectHash.initialize_urls
       client.login
       type_details
       device_details
@@ -371,8 +381,8 @@ module Discovery
     end
     def type_details
       types.each do |t|
-        count=t.parse_root_device("Device Count")
-        logger.info "%-25s%6d %s" % [t.parse_root_device("Device Type","device-name"),count,'device'.pluralize(count)]
+        count=t.parse_root_device(t.urls[:device_count]).to_i
+        logger.info "%-25s%6d %s" % [t.parse_root_device(t.urls[:device_type],"device-name"),count,'device'.pluralize(count)]
       end
     end
     def types
